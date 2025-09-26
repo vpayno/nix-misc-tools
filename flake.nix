@@ -57,6 +57,7 @@
           Available ${name} flake commands:
 
             nix run .#usage | .#default        # this message
+            nix run .#current-system           # returns nix cpuarch-osname label
 
             nix develop .#default
         '';
@@ -67,16 +68,35 @@
           printf "%s" "${usageMessage}"
         '';
 
-        toolConfigs = [
+        toolConfigs = with configs; [
         ];
 
-        toolScripts = [
+        toolScripts = with scripts; [
+          current-system
         ];
+
+        configs = {
+        };
+
+        scripts = {
+          current-system = pkgs.writeShellApplication {
+            name = "current-system";
+            runtimeInputs = with pkgs; [
+              coreutils
+            ];
+            text = ''
+              printf "%s" "${system}"
+              [[ -t 1 ]] && printf "\n"
+            '';
+            meta = {
+              description = "returns the nix system label";
+            };
+          };
+        };
 
         toolBundle = pkgs.buildEnv {
           name = "${name}-bundle";
-          paths = [
-          ];
+          paths = toolScripts;
           buildInputs = with pkgs; [
             makeWrapper
           ];
@@ -102,8 +122,10 @@
       {
         formatter = treefmt-conf.formatter.${system};
 
-        packages = rec {
+        packages = {
           default = toolBundle;
+
+          inherit (scripts) current-system;
         };
 
         apps = rec {
@@ -116,6 +138,13 @@
             name = "${pname}-${version}";
             program = "${pkgs.lib.getExe showUsage}";
             meta = metadata;
+          };
+
+          current-system = {
+            type = "app";
+            name = "current-system";
+            inherit (self.packages.${system}.current-system) meta;
+            program = "${nixpkgs.lib.getExe self.packages.${system}.current-system}";
           };
         };
 
