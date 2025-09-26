@@ -4,3 +4,6 @@
 *bak
 
 /.direnv
+
+/result
+/result-*
