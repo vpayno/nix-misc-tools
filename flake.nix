@@ -58,6 +58,7 @@
 
             nix run .#usage | .#default        # this message
             nix run .#current-system           # returns nix cpuarch-osname label
+            nix run .#flake-lock-update        # updates flake.lock and creates the commit
 
             nix develop .#default
         '';
@@ -73,6 +74,7 @@
 
         toolScripts = with scripts; [
           current-system
+          flake-lock-update
         ];
 
         configs = {
@@ -90,6 +92,25 @@
             '';
             meta = {
               description = "returns the nix system label";
+            };
+          };
+          flake-lock-update = pkgs.writeShellApplication {
+            name = "flake-lock-update";
+            runtimeInputs = with pkgs; [
+              coreutils
+              git
+              gnugrep
+              gnupg
+              nix
+            ];
+            text = ''
+              gitmsgfile="$(mktemp)"
+              { printf "nix: lock update\n\n"; nix flake update; } |& grep -v -E "^warning:" | tee "$gitmsgfile"
+              printf "\n"
+              git commit --file "$gitmsgfile" ./flake.lock
+            '';
+            meta = {
+              description = "Updates flake.lock";
             };
           };
         };
@@ -126,6 +147,7 @@
           default = toolBundle;
 
           inherit (scripts) current-system;
+          inherit (scripts) flake-lock-update;
         };
 
         apps = rec {
@@ -145,6 +167,13 @@
             name = "current-system";
             inherit (self.packages.${system}.current-system) meta;
             program = "${nixpkgs.lib.getExe self.packages.${system}.current-system}";
+          };
+
+          flake-lock-update = {
+            type = "app";
+            name = "flake-lock-update";
+            inherit (self.packages.${system}.flake-lock-update) meta;
+            program = "${nixpkgs.lib.getExe self.packages.${system}.flake-lock-update}";
           };
         };
 
