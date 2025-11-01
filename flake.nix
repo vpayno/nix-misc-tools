@@ -69,13 +69,9 @@
           printf "%s" "${usageMessage}"
         '';
 
-        toolConfigs = with configs; [
-        ];
+        toolConfigs = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") configs;
 
-        toolScripts = with scripts; [
-          current-system
-          flake-lock-update
-        ];
+        toolScripts = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") scripts;
 
         configs = {
         };
