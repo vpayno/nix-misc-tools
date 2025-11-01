@@ -53,21 +53,13 @@
           mainProgram = "showUsage";
         };
 
-        usageMessage = ''
+        usageMessagePre = ''
           Available ${name} flake commands:
 
-            nix run .#usage | .#default        # this message
-            nix run .#current-system           # returns nix cpuarch-osname label
-            nix run .#flake-lock-update        # updates flake.lock and creates the commit
-
-            nix develop .#default
+            nix run .#usage | .#default              # this message
         '';
 
-        # very odd, this doesn't work with pkgs.writeShellApplication
-        # odd quoting error when the string usagemessage as new lines
-        showUsage = pkgs.writeShellScriptBin "showUsage" ''
-          printf "%s" "${usageMessage}"
-        '';
+        showUsage = scripts.flake-usage-text;
 
         toolConfigs = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") configs;
 
@@ -87,9 +79,10 @@
               [[ -t 1 ]] && printf "\n"
             '';
             meta = {
-              description = "returns the nix system label";
+              description = "Returns the nix system (cpu-os) label";
             };
           };
+
           flake-lock-update = pkgs.writeShellApplication {
             name = "flake-lock-update";
             runtimeInputs = with pkgs; [
@@ -106,7 +99,55 @@
               git commit --file "$gitmsgfile" ./flake.lock
             '';
             meta = {
-              description = "Updates flake.lock";
+              description = "Updates flake.lock and creates the commit";
+            };
+          };
+
+          flake-usage-text = pkgs.writeShellApplication {
+            name = "flake-usage-text";
+            runtimeInputs =
+              with pkgs;
+              [
+                coreutils
+                jq
+                gnugrep
+                nix
+              ]
+              ++ (with scripts; [
+                current-system
+              ]);
+            text = ''
+              declare json_text
+              declare -a commands
+              declare -a comments
+              declare -i i
+
+              printf "\n"
+              printf "%s" "${usageMessagePre}"
+              printf "\n"
+
+              json_text="$(nix flake show --json 2>/dev/null | jq --sort-keys .)"
+
+              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("nix run .#")\(.key)"')
+              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("# ")\(.value.description)"')
+
+              for ((i = 0; i < ''${#commands[@]}; i++)); do
+                printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
+              done
+
+              printf "\n"
+
+              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.devShells[$system] | to_entries[] | "\("nix develop .#")\(.key)"')
+              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.devShells[$system] | to_entries[] | "\("# ")\(.value.name)"')
+
+              for ((i = 0; i < ''${#commands[@]}; i++)); do
+                printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
+              done
+
+              printf "\n"
+            '';
+            meta = {
+              description = "Generate nix flake usage text";
             };
           };
         };
