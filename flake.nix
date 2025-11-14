@@ -61,7 +61,7 @@
 
         showUsage = scripts.flake-usage-text;
 
-        toolConfigs = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") configs;
+        toolConfigs = pkgs.lib.mapAttrsToList (name: _: configs."${name}") configs;
 
         toolScripts = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") scripts;
 
@@ -94,9 +94,27 @@
             ];
             text = ''
               gitmsgfile="$(mktemp)"
-              { printf "nix: lock update\n\n"; nix flake update; } |& grep -v -E "^warning:" | tee "$gitmsgfile"
+
               printf "\n"
-              git commit --file "$gitmsgfile" ./flake.lock
+              printf "Updating flake lock file...\n"
+              printf "\n"
+
+              printf "nix: lock update\n\n" > "$gitmsgfile"
+              nix flake update |& grep -v -E "^warning:" | tee -a "$gitmsgfile" || true # keep grep from failing script when updates aren't found
+              printf "\n"
+
+              # success -> flake.lock not updated
+              # failure -> flake.lock updated
+              if git diff-files --quiet ./flake.lock; then
+                printf "\n"
+                printf "INFO: No updates for ./flake.lock found.\n"
+                printf "\n"
+              else
+                git commit --file "$gitmsgfile" ./flake.lock
+                printf "\n"
+                printf "INFO: ./flake.lock updated.\n"
+                printf "\n"
+              fi
             '';
             meta = {
               description = "Updates flake.lock and creates the commit";
