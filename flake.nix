@@ -69,12 +69,13 @@
         };
 
         scripts = {
-          current-system = pkgs.writeShellApplication {
+          currentSystem = pkgs.writeShellApplication {
             name = "current-system";
             runtimeInputs = with pkgs; [
               coreutils
             ];
             text = ''
+              # we need the system variable to be replaced when script is built
               printf "%s" "${system}"
               [[ -t 1 ]] && printf "\n"
             '';
@@ -193,7 +194,13 @@
         packages = {
           default = toolBundle;
 
-          inherit (scripts) current-system;
+          currentSystem = scripts.currentSystem // {
+            pname = "current-system";
+            inherit version;
+            name = "${self.packages.${system}.currentSystem.pname}-${
+              self.packages.${system}.currentSystem.version
+            }";
+          };
 
           flakeLockUpdate = scripts.flakeLockUpdate // {
             pname = "flake-lock-update";
@@ -224,11 +231,11 @@
             meta = metadata;
           };
 
-          current-system = {
+          currentSystem = {
             type = "app";
-            name = "current-system";
-            inherit (self.packages.${system}.current-system) meta;
-            program = "${nixpkgs.lib.getExe self.packages.${system}.current-system}";
+            name = "${self.packages.${system}.currentSystem.pname}";
+            inherit (self.packages.${system}.currentSystem) meta;
+            program = "${pkgs.lib.getExe self.packages.${system}.currentSystem}";
           };
 
           flakeLockUpdate = {
