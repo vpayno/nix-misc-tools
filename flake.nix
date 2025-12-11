@@ -83,7 +83,7 @@
             };
           };
 
-          flake-lock-update = pkgs.writeShellApplication {
+          flakeLockUpdate = pkgs.writeShellApplication {
             name = "flake-lock-update";
             runtimeInputs = with pkgs; [
               coreutils
@@ -91,31 +91,9 @@
               gnugrep
               gnupg
               nix
+              openssh
             ];
-            text = ''
-              gitmsgfile="$(mktemp)"
-
-              printf "\n"
-              printf "Updating flake lock file...\n"
-              printf "\n"
-
-              printf "nix: lock update\n\n" > "$gitmsgfile"
-              nix flake update |& grep -v -E "^warning:" | tee -a "$gitmsgfile" || true # keep grep from failing script when updates aren't found
-              printf "\n"
-
-              # success -> flake.lock not updated
-              # failure -> flake.lock updated
-              if git diff-files --quiet ./flake.lock; then
-                printf "\n"
-                printf "INFO: No updates for ./flake.lock found.\n"
-                printf "\n"
-              else
-                git commit --file "$gitmsgfile" ./flake.lock
-                printf "\n"
-                printf "INFO: ./flake.lock updated.\n"
-                printf "\n"
-              fi
-            '';
+            text = builtins.readFile ./resources/scripts/flake-lock-update.bash;
             meta = {
               description = "Updates flake.lock and creates the commit";
             };
@@ -216,7 +194,15 @@
           default = toolBundle;
 
           inherit (scripts) current-system;
-          inherit (scripts) flake-lock-update;
+
+          flakeLockUpdate = scripts.flakeLockUpdate // {
+            pname = "flake-lock-update";
+            inherit version;
+            name = "${self.packages.${system}.flakeLockUpdate.pname}-${
+              self.packages.${system}.flakeLockUpdate.version
+            }";
+          };
+
           nixProfileDiffLatest = scripts.nixProfileDiffLatest // {
             pname = "nix-profile-diff-latest";
             inherit version;
@@ -245,11 +231,11 @@
             program = "${nixpkgs.lib.getExe self.packages.${system}.current-system}";
           };
 
-          flake-lock-update = {
+          flakeLockUpdate = {
             type = "app";
-            name = "flake-lock-update";
-            inherit (self.packages.${system}.flake-lock-update) meta;
-            program = "${nixpkgs.lib.getExe self.packages.${system}.flake-lock-update}";
+            name = "${self.packages.${system}.flakeLockUpdate.pname}";
+            inherit (self.packages.${system}.flakeLockUpdate) meta;
+            program = "${pkgs.lib.getExe self.packages.${system}.flakeLockUpdate}";
           };
 
           nixProfileDiffLatest = {
