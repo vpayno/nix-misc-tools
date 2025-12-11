@@ -63,6 +63,16 @@
 
         toolScripts = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") scripts;
 
+        generatePackagesFromScripts = pkgs.lib.mapAttrs (
+          name: _:
+          scripts."${name}"
+          // {
+            inherit (scriptMetadata."${name}") pname;
+            inherit version;
+            name = "${self.packages.${system}."${name}".pname}-${self.packages.${system}."${name}".version}";
+          }
+        ) scripts;
+
         configs = {
         };
 
@@ -208,39 +218,8 @@
 
         packages = {
           default = toolBundle;
-
-          flakeShowUsage = scripts.flakeShowUsage // {
-            inherit (scriptMetadata.flakeShowUsage) pname;
-            inherit version;
-            name = "${self.packages.${system}.flakeShowUsage.pname}-${
-              self.packages.${system}.flakeShowUsage.version
-            }";
-          };
-
-          currentSystem = scripts.currentSystem // {
-            inherit (scriptMetadata.currentSystem) pname;
-            inherit version;
-            name = "${self.packages.${system}.currentSystem.pname}-${
-              self.packages.${system}.currentSystem.version
-            }";
-          };
-
-          flakeLockUpdate = scripts.flakeLockUpdate // {
-            inherit (scriptMetadata.flakeLockUpdate) pname;
-            inherit version;
-            name = "${self.packages.${system}.flakeLockUpdate.pname}-${
-              self.packages.${system}.flakeLockUpdate.version
-            }";
-          };
-
-          nixProfileDiffLatest = scripts.nixProfileDiffLatest // {
-            inherit (scriptMetadata.nixProfileDiffLatest) pname;
-            inherit version;
-            name = "${self.packages.${system}.nixProfileDiffLatest.pname}-${
-              self.packages.${system}.nixProfileDiffLatest.version
-            }";
-          };
-        };
+        }
+        // generatePackagesFromScripts;
 
         apps = {
           default = self.apps.${system}.usage;
