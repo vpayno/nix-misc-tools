@@ -30,7 +30,7 @@
       system:
       let
         pname = "nix-misc-tools";
-        version = "20251210.0.0";
+        version = "20251210.0.1";
         name = "${pname}-${version}";
 
         flake_repo_url = "github:vpayno/nix-misc-tools";
@@ -216,6 +216,10 @@
 
             for p in "$out"/bin/*; do
               if [[ ! -x $p ]]; then
+                continue
+              fi
+              if [[ $p =~ /flake-show-usage$ ]]; then
+                rm -fv $p
                 continue
               fi
               echo wrapProgram "$p" --set PATH "$extra_bin_paths"
