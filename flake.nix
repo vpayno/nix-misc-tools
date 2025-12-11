@@ -37,7 +37,7 @@
 
         pkgs = nixpkgs.legacyPackages.${system};
 
-        metadata = {
+        flakeMetaData = {
           homepage = "https://github.com/vpayno/nix-misc-tools";
           description = "My miscelaneous tools wrapped in a Nix Flake";
           license = with pkgs.lib.licenses; [ mit ];
@@ -68,9 +68,32 @@
         configs = {
         };
 
+        scriptMetadata = {
+          currentSystem = rec {
+            pname = "current-system";
+            inherit version;
+            name = "${pname}-${version}";
+            description = "Returns the nix system (cpu-os) label";
+          };
+
+          flakeLockUpdate = rec {
+            pname = "flake-lock-update";
+            inherit version;
+            name = "${pname}-${version}";
+            description = "Updates flake.lock and creates the commit";
+          };
+
+          nixProfileDiffLatest = rec {
+            pname = "nix-profile-diff-latest";
+            inherit version;
+            name = "${pname}-${version}";
+            description = "Generates latest NixOS profile diff";
+          };
+        };
+
         scripts = {
           currentSystem = pkgs.writeShellApplication {
-            name = "current-system";
+            name = scriptMetadata.currentSystem.pname;
             runtimeInputs = with pkgs; [
               coreutils
             ];
@@ -79,13 +102,11 @@
               printf "%s" "${system}"
               [[ -t 1 ]] && printf "\n"
             '';
-            meta = {
-              description = "Returns the nix system (cpu-os) label";
-            };
+            meta = scriptMetadata.currentSystem;
           };
 
           flakeLockUpdate = pkgs.writeShellApplication {
-            name = "flake-lock-update";
+            name = scriptMetadata.flakeLockUpdate.pname;
             runtimeInputs = with pkgs; [
               coreutils
               git
@@ -95,9 +116,7 @@
               openssh
             ];
             text = builtins.readFile ./resources/scripts/flake-lock-update.bash;
-            meta = {
-              description = "Updates flake.lock and creates the commit";
-            };
+            meta = scriptMetadata.flakeLockUpdate;
           };
 
           flake-usage-text = pkgs.writeShellApplication {
@@ -149,7 +168,7 @@
           };
 
           nixProfileDiffLatest = pkgs.writeShellApplication {
-            name = "nix-profile-diff-latest";
+            name = scriptMetadata.nixProfileDiffLatest.pname;
             runtimeInputs = with pkgs; [
               coreutils
               findutils
@@ -157,9 +176,7 @@
               nvd
             ];
             text = builtins.readFile ./resources/scripts/nix-profile-diff-latest.bash;
-            meta = {
-              description = "Generates latest NixOS profile diff";
-            };
+            meta = scriptMetadata.nixProfileDiffLatest;
           };
         };
 
@@ -195,7 +212,7 @@
           default = toolBundle;
 
           currentSystem = scripts.currentSystem // {
-            pname = "current-system";
+            inherit (scriptMetadata.currentSystem) pname;
             inherit version;
             name = "${self.packages.${system}.currentSystem.pname}-${
               self.packages.${system}.currentSystem.version
@@ -203,7 +220,7 @@
           };
 
           flakeLockUpdate = scripts.flakeLockUpdate // {
-            pname = "flake-lock-update";
+            inherit (scriptMetadata.flakeLockUpdate) pname;
             inherit version;
             name = "${self.packages.${system}.flakeLockUpdate.pname}-${
               self.packages.${system}.flakeLockUpdate.version
@@ -211,7 +228,7 @@
           };
 
           nixProfileDiffLatest = scripts.nixProfileDiffLatest // {
-            pname = "nix-profile-diff-latest";
+            inherit (scriptMetadata.nixProfileDiffLatest) pname;
             inherit version;
             name = "${self.packages.${system}.nixProfileDiffLatest.pname}-${
               self.packages.${system}.nixProfileDiffLatest.version
@@ -228,7 +245,7 @@
             inherit version;
             name = "${pname}-${version}";
             program = "${pkgs.lib.getExe showUsage}";
-            meta = metadata;
+            meta = flakeMetaData;
           };
 
           currentSystem = {
