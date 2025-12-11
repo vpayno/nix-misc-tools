@@ -3,6 +3,22 @@
 Putting all of my miscellaneous tools in a single flake to make it easier to
 reuse them.
 
+## Usage
+
+```text
+$ nix run .#default
+
+Available nix-misc-tools-20251210.0.0 flake commands:
+
+  nix run .#flakeShowUsage | .#default     # this message
+
+  nix run .#currentSystem                  # Returns the nix system (cpu-os) label
+  nix run .#flakeLockUpdate                # Updates flake.lock and creates the commit
+  nix run .#nixProfileDiffLatest           # Generates latest NixOS profile diff
+
+  nix develop .#default                    # nix-shell
+```
+
 ## Tools
 
 ### current-system
