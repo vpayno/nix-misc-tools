@@ -73,6 +73,17 @@
           }
         ) scripts;
 
+        generateAppsFromScripts = pkgs.lib.mapAttrs (
+          name: _:
+          scripts."${name}"
+          // {
+            type = "app";
+            name = "${self.packages.${system}.${name}.pname}";
+            inherit (self.packages.${system}.${name}) meta;
+            program = "${pkgs.lib.getExe self.packages.${system}.${name}}";
+          }
+        ) scripts;
+
         configs = {
         };
 
@@ -222,36 +233,9 @@
         // generatePackagesFromScripts;
 
         apps = {
-          default = self.apps.${system}.usage;
-
-          usage = {
-            type = "app";
-            name = "${self.packages.${system}.flakeShowUsage.pname}";
-            inherit (self.packages.${system}.flakeShowUsage) meta;
-            program = "${pkgs.lib.getExe self.packages.${system}.flakeShowUsage}";
-          };
-
-          currentSystem = {
-            type = "app";
-            name = "${self.packages.${system}.currentSystem.pname}";
-            inherit (self.packages.${system}.currentSystem) meta;
-            program = "${pkgs.lib.getExe self.packages.${system}.currentSystem}";
-          };
-
-          flakeLockUpdate = {
-            type = "app";
-            name = "${self.packages.${system}.flakeLockUpdate.pname}";
-            inherit (self.packages.${system}.flakeLockUpdate) meta;
-            program = "${pkgs.lib.getExe self.packages.${system}.flakeLockUpdate}";
-          };
-
-          nixProfileDiffLatest = {
-            type = "app";
-            name = "${self.packages.${system}.nixProfileDiffLatest.pname}";
-            inherit (self.packages.${system}.nixProfileDiffLatest) meta;
-            program = "${pkgs.lib.getExe self.packages.${system}.nixProfileDiffLatest}";
-          };
-        };
+          default = self.apps.${system}.flakeShowUsage;
+        }
+        // generateAppsFromScripts;
 
         devShells = {
           default = pkgs.mkShell rec {
