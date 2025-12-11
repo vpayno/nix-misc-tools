@@ -168,6 +168,20 @@
               description = "Generate nix flake usage text";
             };
           };
+
+          nixProfileDiffLatest = pkgs.writeShellApplication {
+            name = "nix-profile-diff-latest";
+            runtimeInputs = with pkgs; [
+              coreutils
+              findutils
+              nix
+              nvd
+            ];
+            text = builtins.readFile ./resources/scripts/nix-profile-diff-latest.bash;
+            meta = {
+              description = "Generates latest NixOS profile diff";
+            };
+          };
         };
 
         toolBundle = pkgs.buildEnv {
@@ -203,6 +217,13 @@
 
           inherit (scripts) current-system;
           inherit (scripts) flake-lock-update;
+          nixProfileDiffLatest = scripts.nixProfileDiffLatest // {
+            pname = "nix-profile-diff-latest";
+            inherit version;
+            name = "${self.packages.${system}.nixProfileDiffLatest.pname}-${
+              self.packages.${system}.nixProfileDiffLatest.version
+            }";
+          };
         };
 
         apps = rec {
@@ -229,6 +250,13 @@
             name = "flake-lock-update";
             inherit (self.packages.${system}.flake-lock-update) meta;
             program = "${nixpkgs.lib.getExe self.packages.${system}.flake-lock-update}";
+          };
+
+          nixProfileDiffLatest = {
+            type = "app";
+            name = "${self.packages.${system}.nixProfileDiffLatest.pname}";
+            inherit (self.packages.${system}.nixProfileDiffLatest) meta;
+            program = "${pkgs.lib.getExe self.packages.${system}.nixProfileDiffLatest}";
           };
         };
 
