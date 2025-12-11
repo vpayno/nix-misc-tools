@@ -50,7 +50,7 @@
               name = "Victor Payno";
             }
           ];
-          mainProgram = "showUsage";
+          mainProgram = "flake-show-usage";
         };
 
         usageMessagePre = ''
@@ -58,8 +58,6 @@
 
             nix run .#usage | .#default              # this message
         '';
-
-        showUsage = scripts.flake-usage-text;
 
         toolConfigs = pkgs.lib.mapAttrsToList (name: _: configs."${name}") configs;
 
@@ -69,6 +67,13 @@
         };
 
         scriptMetadata = {
+          flakeShowUsage = rec {
+            pname = "flake-show-usage";
+            inherit version;
+            name = "${pname}-${version}";
+            description = "Show Nix flake usage text";
+          };
+
           currentSystem = rec {
             pname = "current-system";
             inherit version;
@@ -92,6 +97,47 @@
         };
 
         scripts = {
+          flakeShowUsage = pkgs.writeShellApplication {
+            name = scriptMetadata.flakeShowUsage.pname;
+            runtimeInputs = with pkgs; [
+              coreutils
+              jq
+              gnugrep
+              nix
+            ];
+            text = ''
+              declare json_text
+              declare -a commands
+              declare -a comments
+              declare -i i
+
+              printf "\n"
+              printf "%s" "${usageMessagePre}"
+              printf "\n"
+
+              json_text="$(nix flake show --json 2>/dev/null | jq --sort-keys .)"
+
+              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("nix run .#")\(.key)"')
+              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("# ")\(.value.description)"')
+
+              for ((i = 0; i < ''${#commands[@]}; i++)); do
+                printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
+              done
+
+              printf "\n"
+
+              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.devShells[$system] | to_entries[] | "\("nix develop .#")\(.key)"')
+              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.devShells[$system] | to_entries[] | "\("# ")\(.value.name)"')
+
+              for ((i = 0; i < ''${#commands[@]}; i++)); do
+                printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
+              done
+
+              printf "\n"
+            '';
+            meta = scriptMetadata.flakeShowUsage;
+          };
+
           currentSystem = pkgs.writeShellApplication {
             name = scriptMetadata.currentSystem.pname;
             runtimeInputs = with pkgs; [
@@ -117,54 +163,6 @@
             ];
             text = builtins.readFile ./resources/scripts/flake-lock-update.bash;
             meta = scriptMetadata.flakeLockUpdate;
-          };
-
-          flake-usage-text = pkgs.writeShellApplication {
-            name = "flake-usage-text";
-            runtimeInputs =
-              with pkgs;
-              [
-                coreutils
-                jq
-                gnugrep
-                nix
-              ]
-              ++ (with scripts; [
-                current-system
-              ]);
-            text = ''
-              declare json_text
-              declare -a commands
-              declare -a comments
-              declare -i i
-
-              printf "\n"
-              printf "%s" "${usageMessagePre}"
-              printf "\n"
-
-              json_text="$(nix flake show --json 2>/dev/null | jq --sort-keys .)"
-
-              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("nix run .#")\(.key)"')
-              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("# ")\(.value.description)"')
-
-              for ((i = 0; i < ''${#commands[@]}; i++)); do
-                printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
-              done
-
-              printf "\n"
-
-              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.devShells[$system] | to_entries[] | "\("nix develop .#")\(.key)"')
-              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "$(current-system)" '.devShells[$system] | to_entries[] | "\("# ")\(.value.name)"')
-
-              for ((i = 0; i < ''${#commands[@]}; i++)); do
-                printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
-              done
-
-              printf "\n"
-            '';
-            meta = {
-              description = "Generate nix flake usage text";
-            };
           };
 
           nixProfileDiffLatest = pkgs.writeShellApplication {
@@ -211,6 +209,14 @@
         packages = {
           default = toolBundle;
 
+          flakeShowUsage = scripts.flakeShowUsage // {
+            inherit (scriptMetadata.flakeShowUsage) pname;
+            inherit version;
+            name = "${self.packages.${system}.flakeShowUsage.pname}-${
+              self.packages.${system}.flakeShowUsage.version
+            }";
+          };
+
           currentSystem = scripts.currentSystem // {
             inherit (scriptMetadata.currentSystem) pname;
             inherit version;
@@ -236,16 +242,14 @@
           };
         };
 
-        apps = rec {
-          default = usage;
+        apps = {
+          default = self.apps.${system}.usage;
 
           usage = {
             type = "app";
-            pname = "usage";
-            inherit version;
-            name = "${pname}-${version}";
-            program = "${pkgs.lib.getExe showUsage}";
-            meta = flakeMetaData;
+            name = "${self.packages.${system}.flakeShowUsage.pname}";
+            inherit (self.packages.${system}.flakeShowUsage) meta;
+            program = "${pkgs.lib.getExe self.packages.${system}.flakeShowUsage}";
           };
 
           currentSystem = {
