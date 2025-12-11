@@ -56,7 +56,7 @@
         usageMessagePre = ''
           Available ${name} flake commands:
 
-            nix run .#usage | .#default              # this message
+            nix run .#flakeShowUsage | .#default     # this message
         '';
 
         toolConfigs = pkgs.lib.mapAttrsToList (name: _: configs."${name}") configs;
@@ -138,8 +138,8 @@
 
               json_text="$(nix flake show --json 2>/dev/null | jq --sort-keys .)"
 
-              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("nix run .#")\(.key)"')
-              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.apps[$system] | to_entries[] | select(.key | test("^(default|usage)$") | not) | "\("# ")\(.value.description)"')
+              mapfile -t commands < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.apps[$system] | to_entries[] | select(.key | test("^(default|flakeShowUsage)$") | not) | "\("nix run .#")\(.key)"')
+              mapfile -t comments < <(printf "%s" "$json_text" | jq -r --arg system "${system}" '.apps[$system] | to_entries[] | select(.key | test("^(default|flakeShowUsage)$") | not) | "\("# ")\(.value.description)"')
 
               for ((i = 0; i < ''${#commands[@]}; i++)); do
                 printf "  %-40s %s\n" "''${commands[$i]}" "''${comments[$i]}"
