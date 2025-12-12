@@ -16,6 +16,11 @@
       url = "github:vpayno/nix-treefmt-conf";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -25,7 +30,7 @@
       flake-utils,
       treefmt-conf,
       ...
-    }:
+    }@inputs:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -188,12 +193,18 @@
 
           nixProfileDiffLatest = pkgs.writeShellApplication {
             name = scriptMetadata.nixProfileDiffLatest.pname;
-            runtimeInputs = with pkgs; [
-              coreutils
-              findutils
-              nix
-              nvd
-            ];
+            runtimeInputs =
+              with pkgs;
+              [
+                coreutils
+                findutils
+                gawk
+                nix
+                nvd
+              ]
+              ++ [
+                inputs.home-manager.packages.${system}.default
+              ];
             text = builtins.readFile ./resources/scripts/nix-profile-diff-latest.bash;
             meta = scriptMetadata.nixProfileDiffLatest;
           };
