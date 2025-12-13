@@ -232,8 +232,8 @@
                 rm -fv $p
                 continue
               fi
-              echo wrapProgram "$p" --set PATH "$extra_bin_paths"
-              wrapProgram "$p" --set PATH "$extra_bin_paths"
+              # echo wrapProgram "$p" --set PATH "$extra_bin_paths"
+              # wrapProgram "$p" --set PATH "$extra_bin_paths"
             done
           '';
         };
