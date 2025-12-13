@@ -185,7 +185,6 @@
               gnugrep
               gnupg
               nix
-              openssh
             ];
             text = builtins.readFile ./resources/scripts/flake-lock-update.bash;
             meta = scriptMetadata.flakeLockUpdate;
