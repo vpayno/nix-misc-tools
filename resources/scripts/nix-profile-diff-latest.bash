@@ -1,5 +1,17 @@
 # shellcheck shell=bash
 
+get_nix_os_name() {
+	if command -v nixos-rebuild >&/dev/null; then
+		printf "%s" "NixOS"
+	elif command -v darwin-rebuild >&/dev/null; then
+		printf "%s" "nix-darwin"
+	elif command -v system-manager >&/dev/null; then
+		printf "%s" "system-manager"
+	else
+		printf "%s" "unknown_os"
+	fi
+}
+
 nixos_diff() {
 	if [[ ! -d /nix/var/nix/profiles/system ]]; then
 		return 0
@@ -10,14 +22,14 @@ nixos_diff() {
 	mapfile -t nix_links < <(find /nix/var/nix/profiles/ -type l -regextype posix-extended -regex '^.*/system-[0-9]+-link$' | sort -V | tail -n 2)
 	if [[ ${#nix_links[@]} -eq 2 ]]; then
 		printf "\n"
-		printf "Generating latest nixos profile diff...\n"
+		printf "Generating latest %s profile diff...\n" "$(get_nix_os_name)"
 		printf "\n"
 		nvd diff "${nix_links[@]}"
 		printf "\n"
 	else
 		{
 			printf "\n"
-			printf "Not enough nixos generations found for a diff.\n"
+			printf "Not enough %s generations found for a diff.\n" "$(get_nix_os_name)"
 			printf "\n"
 		} 1>&2
 		return 1
