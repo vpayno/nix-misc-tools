@@ -36,6 +36,30 @@ nixos_diff() {
 	fi
 }
 
+sysmgr_diff() {
+	if [[ ! -d /nix/var/nix/profiles/system-manager-profiles ]]; then
+		return 0
+	fi
+
+	local -a sm_links
+
+	mapfile -t nix_links < <(find /nix/var/nix/profiles/system-manager-profiles/ -type l -regextype posix-extended -regex '^.*/system-manager-[0-9]+-link$' | sort -V | tail -n 2)
+	if [[ ${#sm_links[@]} -eq 2 ]]; then
+		printf "\n"
+		printf "Generating latest %s profile diff...\n" "$(get_nix_os_name)"
+		printf "\n"
+		nvd diff "${sm_links[@]}"
+		printf "\n"
+	else
+		{
+			printf "\n"
+			printf "Not enough %s generations found for a diff.\n" "$(get_nix_os_name)"
+			printf "\n"
+		} 1>&2
+		return 1
+	fi
+}
+
 hm_diff() {
 	if ! command -v home-manager >&/dev/null; then
 		return 0
@@ -59,6 +83,7 @@ main() {
 	local -i retval=0
 
 	nixos_diff || ((retval += 1))
+	sysmgr_diff || ((retval += 1))
 	hm_diff || ((retval += 1))
 
 	if [[ ${retval} -gt 0 ]]; then
