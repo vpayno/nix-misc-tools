@@ -8,12 +8,13 @@ reuse them.
 ```text
 $ nix run .#default
 
-Available nix-misc-tools-20251210.0.0 flake commands:
+Available nix-misc-tools-20260101.0.0 flake commands:
 
   nix run .#flakeShowUsage | .#default     # this message
 
   nix run .#currentSystem                  # Returns the nix system (cpu-os) label
   nix run .#flakeLockUpdate                # Updates flake.lock and creates the commit
+  nix run .#nixFlakeBrowser                # Nix flake terminal browser
   nix run .#nixProfileDiffLatest           # Generates latest NixOS profile diff
 
   nix develop .#default                    # nix-shell

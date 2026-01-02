@@ -35,7 +35,7 @@
       system:
       let
         pname = "nix-misc-tools";
-        version = "20251214.0.0";
+        version = "20260101.0.0";
         name = "${pname}-${version}";
 
         flake_repo_url = "github:vpayno/nix-misc-tools";
@@ -119,6 +119,13 @@
             inherit version;
             name = "${pname}-${version}";
             description = "Generates latest NixOS profile diff";
+          };
+
+          nixFlakeBrowser = rec {
+            pname = "flake-browser";
+            inherit version;
+            name = "${pname}-${version}";
+            description = "Nix flake terminal browser";
           };
         };
 
@@ -206,6 +213,16 @@
               ];
             text = builtins.readFile ./resources/scripts/nix-profile-diff-latest.bash;
             meta = scriptMetadata.nixProfileDiffLatest;
+          };
+
+          nixFlakeBrowser = pkgs.writeShellApplication {
+            name = scriptMetadata.nixFlakeBrowser.pname;
+            runtimeInputs = with pkgs; [
+              coreutils
+              nix-inspect
+            ];
+            text = builtins.readFile ./resources/scripts/flake-browser.bash;
+            meta = scriptMetadata.nixFlakeBrowser;
           };
         };
 
