@@ -7,7 +7,7 @@ printf "Updating flake lock file...\n"
 printf "\n"
 
 printf "nix: lock update\n\n" >"$gitmsgfile"
-nix flake update |& grep -v -E "^warning:" | tee -a "$gitmsgfile" || true # keep grep from failing script when updates aren't found
+nix flake update "${@}" |& grep -v -E "^warning:" | tee -a "$gitmsgfile" || true # keep grep from failing script when updates aren't found
 printf "\n"
 
 # success -> flake.lock not updated
