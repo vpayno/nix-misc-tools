@@ -265,10 +265,14 @@
 
         devShells = {
           default = pkgs.mkShell rec {
-            packages = with pkgs; [
-              bashInteractive
-              toolBundle
-            ];
+            packages =
+              with pkgs;
+              [
+                bashInteractive
+              ]
+              ++ [
+                toolBundle
+              ];
 
             shellMotd = ''
               Starting ${name}
