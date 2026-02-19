@@ -182,6 +182,7 @@
           flakeLockUpdate = pkgs.writeShellApplication {
             name = scriptMetadata.flakeLockUpdate.pname;
             runtimeInputs = with pkgs; [
+              ansifilter
               coreutils
               git
               gnugrep
