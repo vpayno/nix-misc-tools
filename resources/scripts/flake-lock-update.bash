@@ -3,6 +3,8 @@
 usage() {
 	{
 		printf "Usage: %s [--list-inputs] [--include <input1,input2>] [--exclude <input3,input4>]\n" "${0}"
+		printf "\n"
+		printf "Valid flake inputs: %s\n" "${flake_inputs[*]}"
 	} 1>&2
 	exit 1
 }
@@ -18,8 +20,11 @@ get_flake_inputs() {
 }
 
 declare option
+declare -a flake_inputs=()
 declare -a selected_inputs=()
 declare -a excluded_inputs=()
+
+mapfile -t flake_inputs < <(get_flake_inputs)
 
 while getopts "li:e:h" option; do
 	case "${option}" in
@@ -53,10 +58,46 @@ if [[ ${#selected_inputs[@]} -gt 0 && ${#excluded_inputs[@]} -gt 0 ]]; then
 fi
 
 declare -a inputs=()
+declare valid
+declare input_name
 
 if [[ ${#selected_inputs[@]} -gt 0 ]]; then
+	for item in "${selected_inputs[@]}"; do
+		valid=false
+		for input_name in "${flake_inputs[@]}"; do
+			if [[ ${input_name} == "${item}" ]]; then
+				valid=true
+				break
+			fi
+		done
+		if ! ${valid}; then
+			{
+				printf "ERROR: one or more selected inputs [%s] was not found in the flake inputs.\n" "${selected_inputs[@]}"
+				printf "\n"
+				printf "Valid flake inputs: %s\n" "${flake_inputs[*]}"
+			} 1>&2
+			exit 1
+		fi
+	done
 	inputs=("${selected_inputs[@]}")
 elif [[ ${#excluded_inputs[@]} -gt 0 ]]; then
+	for item in "${excluded_inputs[@]}"; do
+		valid=false
+		for input_name in "${flake_inputs[@]}"; do
+			if [[ ${input_name} == "${item}" ]]; then
+				valid=true
+				break
+			fi
+		done
+		if ! ${valid}; then
+			{
+				printf "ERROR: one or more selected inputs [%s] was not found in the flake inputs.\n" "${excluded_inputs[@]}"
+				printf "\n"
+				printf "Valid flake inputs: %s\n" "${flake_inputs[*]}"
+			} 1>&2
+			exit 1
+		fi
+	done
 	mapfile -t inputs < <(get_flake_inputs)
 	declare -i i=0
 	for ((i = 0; i < "${#inputs[@]}"; i++)); do
