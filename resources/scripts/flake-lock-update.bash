@@ -19,6 +19,60 @@ get_flake_inputs() {
 	) 2>/dev/null | tr -d '"' | ansifilter | tr ' ' '\n' | sort -u | grep -E '^[a-zA-Z]'
 }
 
+is_in_array() {
+	local -n data="${1}"
+	local -n keys="${2}"
+
+	local valid
+	local item
+	local input_name
+
+	for item in "${keys[@]}"; do
+		valid=false
+		for input_name in "${data[@]}"; do
+			if [[ ${input_name} == "${item}" ]]; then
+				valid=true
+				break
+			fi
+		done
+	done
+
+	"${valid}"
+}
+
+invalid_input_msg() {
+	local -n flake_data="${1}"
+	local -n selected_data="${2}"
+	local mode="${3}"
+
+	{
+		if [[ ${#selected_data[@]} -eq 1 ]]; then
+			printf "ERROR: %s input [%s] wasn't found in the flake inputs.\n" "${mode}" "${selected_data[@]}"
+		else
+			printf "ERROR: one or more %s inputs [%s] weren't found in the flake inputs.\n" "${mode}" "${selected_data[@]}"
+		fi
+		printf "\n"
+		printf "Valid flake inputs: %s\n" "${flake_data[*]}"
+	} 1>&2
+}
+
+reduce_list() {
+	local -n data="${1}"
+	local -n keys="${2}"
+
+	local -i i=0
+	local item
+
+	for item in "${excluded_inputs[@]}"; do
+		for ((i = 0; i < "${#inputs[@]}"; i++)); do
+			if [[ ${inputs[${i}]} == "${item}" ]]; then
+				unset "inputs[${i}]"
+				break
+			fi
+		done
+	done
+}
+
 declare option
 declare -a flake_inputs=()
 declare -a selected_inputs=()
@@ -62,82 +116,50 @@ declare valid
 declare input_name
 
 if [[ ${#selected_inputs[@]} -gt 0 ]]; then
-	for item in "${selected_inputs[@]}"; do
-		valid=false
-		for input_name in "${flake_inputs[@]}"; do
-			if [[ ${input_name} == "${item}" ]]; then
-				valid=true
-				break
-			fi
-		done
-		if ! ${valid}; then
-			{
-				printf "ERROR: one or more selected inputs [%s] was not found in the flake inputs.\n" "${selected_inputs[@]}"
-				printf "\n"
-				printf "Valid flake inputs: %s\n" "${flake_inputs[*]}"
-			} 1>&2
-			exit 1
-		fi
-	done
+	if ! is_in_array flake_inputs selected_inputs; then
+		invalid_input_msg flake_inputs selected_inputs selected
+		exit 1
+	fi
 	inputs=("${selected_inputs[@]}")
 elif [[ ${#excluded_inputs[@]} -gt 0 ]]; then
-	for item in "${excluded_inputs[@]}"; do
-		valid=false
-		for input_name in "${flake_inputs[@]}"; do
-			if [[ ${input_name} == "${item}" ]]; then
-				valid=true
-				break
-			fi
-		done
-		if ! ${valid}; then
-			{
-				printf "ERROR: one or more selected inputs [%s] was not found in the flake inputs.\n" "${excluded_inputs[@]}"
-				printf "\n"
-				printf "Valid flake inputs: %s\n" "${flake_inputs[*]}"
-			} 1>&2
-			exit 1
-		fi
-	done
+	if ! is_in_array flake_inputs excluded_inputs; then
+		invalid_input_msg flake_inputs excluded_inputs excluded
+		exit 1
+	fi
 	mapfile -t inputs < <(get_flake_inputs)
-	declare -i i=0
-	for ((i = 0; i < "${#inputs[@]}"; i++)); do
-		for item in "${excluded_inputs[@]}"; do
-			if [[ ${inputs[${i}]} == "${item}" ]]; then
-				unset "inputs[${i}]"
-				break
-			fi
-		done
-	done
+	reduce_list inputs excluded_inputs
 fi
 
 declare gitmsgfile
 
 gitmsgfile="$(mktemp)"
 
+{
+	printf "nix: lock update\n"
+	printf "\n"
+} >"${gitmsgfile}"
+
 printf "\n"
 printf "Updating flake lock file...\n"
 printf "\n"
 
-printf "nix: lock update\n\n" >"${gitmsgfile}"
+printf "flake inputs: %s\n" "${flake_inputs[*]}"
+printf "\n"
+
 if [[ ${#inputs[@]} -gt 0 ]]; then
-	printf "\n"
-	printf "Updating inputs: "
-	printf "%s, " "${inputs[@]}" | sed -r -e 's/, $//g'
-	printf "\n"
+	printf "Updating inputs: %s\n" "${inputs[*]}"
 	printf "\n"
 fi | tee -a "${gitmsgfile}"
+
 nix flake update "${inputs[@]}" |& grep -v -E "^warning:" | tee -a "${gitmsgfile}" || true # keep grep from failing script when updates aren't found
 printf "\n"
 
 # success -> flake.lock not updated
 # failure -> flake.lock updated
 if git diff-files --quiet ./flake.lock; then
-	printf "\n"
 	printf "INFO: No updates for ./flake.lock found.\n"
-	printf "\n"
 else
 	git commit --file "${gitmsgfile}" ./flake.lock
-	printf "\n"
 	printf "INFO: ./flake.lock updated.\n"
-	printf "\n"
 fi
+printf "\n"
