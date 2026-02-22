@@ -143,8 +143,15 @@ printf "\n"
 printf "Updating flake lock file...\n"
 printf "\n"
 
-printf "flake inputs: %s\n" "${flake_inputs[*]}"
-printf "\n"
+{
+	printf "flake inputs: %s\n" "${flake_inputs[*]}"
+	printf "\n"
+} | tee -a "${gitmsgfile}"
+
+if [[ ${#excluded_inputs[@]} -gt 0 ]]; then
+	printf "Excluded inputs: %s\n" "${excluded_inputs[*]}"
+	printf "\n"
+fi | tee -a "${gitmsgfile}"
 
 if [[ ${#inputs[@]} -gt 0 ]]; then
 	printf "Updating inputs: %s\n" "${inputs[*]}"
