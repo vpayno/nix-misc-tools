@@ -9,6 +9,8 @@ usage() {
 			  -i | --include <input1,input2>   :   comma separated list of inputs to update
 			  -e | --exclude <input3,input4>   :   comma separated list of inputs to exclude from the update
 
+			  -h | --help                      :   show usage and exit(2)
+
 			Valid flake inputs: ${flake_inputs[*]// /,}
 		EOF
 	} 1>&2
