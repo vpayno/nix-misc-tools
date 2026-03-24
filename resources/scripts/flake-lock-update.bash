@@ -2,11 +2,17 @@
 
 usage() {
 	{
-		printf "Usage: %s [--list-inputs] [--include <input1,input2>] [--exclude <input3,input4>]\n" "${0}"
-		printf "\n"
-		printf "Valid flake inputs: %s\n" "${flake_inputs[*]}"
+		cat <<-EOF
+			Usage: ${0}
+
+			  -l | --list-inputs               :   show flake inputs
+			  -i | --include <input1,input2>   :   comma separated list of inputs to update
+			  -e | --exclude <input3,input4>   :   comma separated list of inputs to exclude from the update
+
+			Valid flake inputs: ${flake_inputs[*]// /,}
+		EOF
 	} 1>&2
-	exit 1
+	exit 2
 }
 
 get_flake_inputs() {
@@ -73,33 +79,43 @@ reduce_list() {
 	done
 }
 
-declare option
 declare -a flake_inputs=()
 declare -a selected_inputs=()
 declare -a excluded_inputs=()
 
 mapfile -t flake_inputs < <(get_flake_inputs)
 
-while getopts "li:e:h" option; do
-	case "${option}" in
-	l)
+declare parsed_args
+declare -i invalid_args=0
+
+parsed_args="$(getopt --name "$(basename "${0}")" --options "hli:e:" --longoptions "help,list-inputs,include:,exclude:" -- "${@}")" || invalid_args="${?}"
+
+if [[ ${invalid_args} -ne 0 ]]; then
+	printf "\n"
+	usage
+fi
+
+eval set -- "${parsed_args}"
+
+while :; do
+	case "${1}" in
+	-l | --list-inputs)
 		get_flake_inputs
 		exit
 		;;
-	i)
-		mapfile -t selected_inputs < <(sed -r -e 's/,/\n/g' <<<"${OPTARG}")
+	-i | --include)
+		mapfile -t selected_inputs < <(sed -r -e 's/,/\n/g' <<<"${2}")
+		shift 2
 		;;
-	e)
-		mapfile -t excluded_inputs < <(sed -r -e 's/,/\n/g' <<<"${OPTARG}")
+	-e | --exclude)
+		mapfile -t excluded_inputs < <(sed -r -e 's/,/\n/g' <<<"${2}")
+		shift 2
 		;;
-	:)
-		printf "ERROR: Option [%s] requires an argument\n" "-${OPTARG}" 1>&2
-		usage
+	--)
+		shift
+		break
 		;;
-	h)
-		usage
-		;;
-	*)
+	-h | --help)
 		usage
 		;;
 	esac

@@ -270,6 +270,7 @@
               with pkgs;
               [
                 bashInteractive
+                getopt
               ]
               ++ [
                 toolBundle
