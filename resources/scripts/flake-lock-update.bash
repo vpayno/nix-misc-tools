@@ -9,6 +9,7 @@ usage() {
 			  -i | --include <input1,input2>   :   comma separated list of inputs to update
 			  -e | --exclude <input3,input4>   :   comma separated list of inputs to exclude from the update
 
+			  -d | --show-update-diff-only     :   only show lock update diff
 			  -h | --help                      :   show usage and exit(2)
 
 			Valid flake inputs: ${flake_inputs[*]// /,}
@@ -90,7 +91,7 @@ mapfile -t flake_inputs < <(get_flake_inputs)
 declare parsed_args
 declare -i invalid_args=0
 
-parsed_args="$(getopt --name "$(basename "${0}")" --options "hli:e:" --longoptions "help,list-inputs,include:,exclude:" -- "${@}")" || invalid_args="${?}"
+parsed_args="$(getopt --name "$(basename "${0}")" --options "hdli:e:" --longoptions "help,show-update-diff-only,list-inputs,include:,exclude:" -- "${@}")" || invalid_args="${?}"
 
 if [[ ${invalid_args} -ne 0 ]]; then
 	printf "\n"
@@ -99,11 +100,17 @@ fi
 
 eval set -- "${parsed_args}"
 
+declare MODE_CHANGELOG_ONLY=false
+
 while :; do
 	case "${1}" in
 	-l | --list-inputs)
 		get_flake_inputs
 		exit
+		;;
+	-d | --show-update-diff-only)
+		MODE_CHANGELOG_ONLY=true
+		shift 1
 		;;
 	-i | --include)
 		mapfile -t selected_inputs < <(sed -r -e 's/,/\n/g' <<<"${2}")
@@ -184,7 +191,14 @@ printf "\n"
 if git diff-files --quiet ./flake.lock; then
 	printf "INFO: No updates for ./flake.lock found.\n"
 else
-	git commit --file "${gitmsgfile}" ./flake.lock
-	printf "INFO: ./flake.lock updated.\n"
+	if "${MODE_CHANGELOG_ONLY}"; then
+		printf "Showing update diff/changelog only.\n"
+		printf "\n"
+		git restore ./flake.lock
+		exit 1
+	else
+		git commit --file "${gitmsgfile}" ./flake.lock
+		printf "INFO: ./flake.lock updated.\n"
+	fi
 fi
 printf "\n"
