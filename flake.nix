@@ -35,7 +35,7 @@
       system:
       let
         pname = "nix-misc-tools";
-        version = "20260219.0.2";
+        version = "20260324.0.0";
         name = "${pname}-${version}";
 
         flake_repo_url = "github:vpayno/nix-misc-tools";
