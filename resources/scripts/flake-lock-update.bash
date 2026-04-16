@@ -10,6 +10,7 @@ usage() {
 			  -e | --exclude <input3,input4>   :   comma separated list of inputs to exclude from the update
 
 			  -d | --show-update-diff-only     :   only show lock update diff
+			  -n | --dry-run                   :   do everything but updating flake.lock
 			  -h | --help                      :   show usage and exit(2)
 
 			Valid flake inputs: ${flake_inputs[*]// /,}
@@ -91,7 +92,7 @@ mapfile -t flake_inputs < <(get_flake_inputs)
 declare parsed_args
 declare -i invalid_args=0
 
-parsed_args="$(getopt --name "$(basename "${0}")" --options "hdli:e:" --longoptions "help,show-update-diff-only,list-inputs,include:,exclude:" -- "${@}")" || invalid_args="${?}"
+parsed_args="$(getopt --name "$(basename "${0}")" --options "hndli:e:" --longoptions "help,dry-run,show-update-diff-only,list-inputs,include:,exclude:" -- "${@}")" || invalid_args="${?}"
 
 if [[ ${invalid_args} -ne 0 ]]; then
 	printf "\n"
@@ -101,6 +102,7 @@ fi
 eval set -- "${parsed_args}"
 
 declare MODE_CHANGELOG_ONLY=false
+declare MODE_DRY_RUN=false
 
 while :; do
 	case "${1}" in
@@ -123,6 +125,10 @@ while :; do
 	--)
 		shift
 		break
+		;;
+	-n | --dry-run)
+		MODE_DRY_RUN=true
+		shift
 		;;
 	-h | --help)
 		usage
@@ -183,7 +189,12 @@ if [[ ${#inputs[@]} -gt 0 ]]; then
 	printf "\n"
 fi | tee -a "${gitmsgfile}"
 
-nix flake update "${inputs[@]}" |& grep -v -E "^warning:" | tee -a "${gitmsgfile}" || true # keep grep from failing script when updates aren't found
+if "${MODE_DRY_RUN}"; then
+	echo Pretending to Run: nix flake update "${inputs[@]}"
+else
+	echo Running: nix flake update "${inputs[@]}"
+	nix flake update "${inputs[@]}" |& grep -v -E "^warning:" | tee -a "${gitmsgfile}" || true # keep grep from failing script when updates aren't found
+fi
 printf "\n"
 
 # success -> flake.lock not updated
