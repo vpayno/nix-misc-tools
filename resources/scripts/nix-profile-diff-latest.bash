@@ -43,7 +43,7 @@ sysmgr_diff() {
 
 	local -a sm_links
 
-	mapfile -t nix_links < <(find /nix/var/nix/profiles/system-manager-profiles/ -type l -regextype posix-extended -regex '^.*/system-manager-[0-9]+-link$' | sort -V | tail -n 2)
+	mapfile -t sm_links < <(find /nix/var/nix/profiles/system-manager-profiles/ -type l -regextype posix-extended -regex '^.*/system-manager-[0-9]+-link$' | sort -V | tail -n 2)
 	if [[ ${#sm_links[@]} -eq 2 ]]; then
 		printf "\n"
 		printf "Generating latest %s profile diff...\n" "$(get_nix_os_name)"
