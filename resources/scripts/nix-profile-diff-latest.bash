@@ -36,6 +36,30 @@ nixos_diff() {
 	fi
 }
 
+nixprofile_diff() {
+	if [[ ! -d ${HOME}/.local/state/nix/profiles ]]; then
+		return 0
+	fi
+
+	local -a nixprofile_links
+
+	mapfile -t nixprofile_links < <(find "${HOME}"/.local/state/nix/profiles -type l -regextype posix-extended -regex '^.*/profile-[0-9]+-link$' | sort -V | tail -n 2)
+	if [[ ${#nixprofile_links[@]} -eq 2 ]]; then
+		printf "\n"
+		printf "Generating latest %s profile diff...\n" "nix user"
+		printf "\n"
+		nvd diff "${nixprofile_links[@]}"
+		printf "\n"
+	else
+		{
+			printf "\n"
+			printf "Not enough %s generations found for a diff.\n" "nix user"
+			printf "\n"
+		} 1>&2
+		return 1
+	fi
+}
+
 sysmgr_diff() {
 	if [[ ! -d /nix/var/nix/profiles/system-manager-profiles ]]; then
 		return 0
@@ -83,6 +107,7 @@ main() {
 	local -i retval=0
 
 	nixos_diff || ((retval += 1))
+	nixprofile_diff || ((retval += 1))
 	sysmgr_diff || ((retval += 1))
 	hm_diff || ((retval += 1))
 
