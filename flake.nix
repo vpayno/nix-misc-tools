@@ -21,6 +21,11 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nix-repo-tools = {
+      url = "github:vpayno/nix-repo-tools";
+      #inputs.nixpkgs.follows = "nixpkgs"; # needs overaly in remote flake
+    };
   };
 
   outputs =
@@ -67,6 +72,10 @@
         toolConfigs = pkgs.lib.mapAttrsToList (name: _: configs."${name}") configs;
 
         toolScripts = pkgs.lib.mapAttrsToList (name: _: scripts."${name}") scripts;
+
+        wrappedPkgs = [
+          self.packages.${system}.git
+        ];
 
         generatePackagesFromScripts = pkgs.lib.mapAttrs (
           name: _:
@@ -181,14 +190,17 @@
 
           flakeLockUpdate = pkgs.writeShellApplication {
             name = scriptMetadata.flakeLockUpdate.pname;
-            runtimeInputs = with pkgs; [
-              ansifilter
-              coreutils
-              git
-              gnugrep
-              gnupg
-              nix
-            ];
+            runtimeInputs =
+              with pkgs;
+              [
+                ansifilter
+                coreutils
+                # git # in wrappedPkgs
+                gnugrep
+                gnupg
+                nix
+              ]
+              ++ wrappedPkgs;
             text = builtins.readFile ./resources/scripts/flake-lock-update.bash;
             meta = scriptMetadata.flakeLockUpdate;
           };
@@ -224,8 +236,8 @@
 
         toolBundle = pkgs.buildEnv {
           name = "${name}-bundle";
-          paths = toolScripts;
-          buildInputs = with pkgs; [
+          paths = toolScripts ++ wrappedPkgs;
+          nativeBuildInputs = with pkgs; [
             makeWrapper
           ];
           pathsToLink = [
@@ -256,6 +268,7 @@
 
         packages = {
           default = toolBundle;
+          git = inputs.nix-repo-tools.packages.${system}.gitWrapped;
         }
         // generatePackagesFromScripts;
 
@@ -274,6 +287,7 @@
               ]
               ++ [
                 toolBundle
+                wrappedPkgs
               ];
 
             shellMotd = ''
