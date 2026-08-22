@@ -107,9 +107,9 @@ main() {
 	local -i retval=0
 
 	nixos_diff || ((retval += 1))
-	nixprofile_diff || ((retval += 1))
 	sysmgr_diff || ((retval += 1))
 	hm_diff || ((retval += 1))
+	nixprofile_diff || ((retval += 1))
 
 	if [[ ${retval} -gt 0 ]]; then
 		{
