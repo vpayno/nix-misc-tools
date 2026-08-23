@@ -114,7 +114,7 @@ main() {
 	if [[ ${retval} -gt 0 ]]; then
 		{
 			printf "\n"
-			printf "WARNINGS: One or more warnings encountered. (count: %d)\n" ${retval} 1>&2
+			printf "WARNING: One or more warnings encountered. (count: %d)\n" ${retval} 1>&2
 			printf "\n"
 		} 1>&2
 	fi
