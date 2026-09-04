@@ -22,17 +22,17 @@ nixos_diff() {
 	mapfile -t nix_links < <(find /nix/var/nix/profiles/ -type l -regextype posix-extended -regex '^.*/system-[0-9]+-link$' | sort -V | tail -n 2)
 	if [[ ${#nix_links[@]} -eq 2 ]]; then
 		printf "\n"
-		printf "Generating latest %s profile diff...\n" "$(get_nix_os_name)"
+		printf "INFO: Generating latest %s profile diff...\n" "$(get_nix_os_name)"
 		printf "\n"
 		nvd diff "${nix_links[@]}"
 		printf "\n"
 	else
 		{
 			printf "\n"
-			printf "Not enough %s generations found for a diff.\n" "$(get_nix_os_name)"
+			printf "WARN: Not enough %s generations found for a diff.\n" "$(get_nix_os_name)"
 			printf "\n"
 		} 1>&2
-		return 1
+		return 0
 	fi
 }
 
@@ -46,17 +46,17 @@ nixprofile_diff() {
 	mapfile -t nixprofile_links < <(find "${HOME}"/.local/state/nix/profiles -type l -regextype posix-extended -regex '^.*/profile-[0-9]+-link$' | sort -V | tail -n 2)
 	if [[ ${#nixprofile_links[@]} -eq 2 ]]; then
 		printf "\n"
-		printf "Generating latest %s profile diff...\n" "nix user"
+		printf "INFO: Generating latest %s profile diff...\n" "nix user"
 		printf "\n"
 		nvd diff "${nixprofile_links[@]}"
 		printf "\n"
 	else
 		{
 			printf "\n"
-			printf "Not enough %s generations found for a diff.\n" "nix user"
+			printf "WARN: Not enough %s generations found for a diff.\n" "nix user"
 			printf "\n"
 		} 1>&2
-		return 1
+		return 0
 	fi
 }
 
@@ -70,17 +70,17 @@ sysmgr_diff() {
 	mapfile -t sm_links < <(find /nix/var/nix/profiles/system-manager-profiles/ -type l -regextype posix-extended -regex '^.*/system-manager-[0-9]+-link$' | sort -V | tail -n 2)
 	if [[ ${#sm_links[@]} -eq 2 ]]; then
 		printf "\n"
-		printf "Generating latest %s profile diff...\n" "$(get_nix_os_name)"
+		printf "INFO: Generating latest %s profile diff...\n" "$(get_nix_os_name)"
 		printf "\n"
 		nvd diff "${sm_links[@]}"
 		printf "\n"
 	else
 		{
 			printf "\n"
-			printf "Not enough %s generations found for a diff.\n" "$(get_nix_os_name)"
+			printf "WARN: Not enough %s generations found for a diff.\n" "$(get_nix_os_name)"
 			printf "\n"
 		} 1>&2
-		return 1
+		return 0
 	fi
 }
 
@@ -94,11 +94,16 @@ hm_diff() {
 	mapfile -t hm_links < <(home-manager generations | awk '/ id [0-9]+ / { print $7 }' | head -n 2 | tac)
 	if [[ ${#hm_links[@]} -eq 2 ]]; then
 		printf "\n"
-		printf "Generating latest home-manager profile diff...\n"
+		printf "INFO: Generating latest home-manager profile diff...\n"
 		printf "\n"
 		nvd diff "${hm_links[@]}"
 		printf "\n"
 	else
+		{
+			printf "\n"
+			printf "WARN: Not enough %s generations found for a diff.\n" "home-manager"
+			printf "\n"
+		} 1>&2
 		return 0
 	fi
 }
@@ -114,7 +119,7 @@ main() {
 	if [[ ${retval} -gt 0 ]]; then
 		{
 			printf "\n"
-			printf "WARNING: One or more warnings encountered. (count: %d)\n" ${retval} 1>&2
+			printf "WARN: One or more warnings encountered. (count: %d)\n" ${retval} 1>&2
 			printf "\n"
 		} 1>&2
 	fi
