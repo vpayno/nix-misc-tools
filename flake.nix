@@ -3,7 +3,7 @@
   description = "My miscelaneous tools wrapped in a Nix Flake";
 
   inputs = {
-    nixpkgs.url = "github:nixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixOS/nixpkgs/nixos-26.05";
 
     systems.url = "github:vpayno/nix-systems-default";
 
