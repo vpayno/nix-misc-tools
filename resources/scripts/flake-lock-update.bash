@@ -8,6 +8,7 @@ usage() {
 			  -l | --list-inputs               :   show flake inputs
 			  -i | --include <input1,input2>   :   comma separated list of inputs to update
 			  -e | --exclude <input3,input4>   :   comma separated list of inputs to exclude from the update
+			  -s | --serial-update             :   update inputs one at a time
 
 			  -d | --show-update-diff-only     :   only show lock update diff
 			  -n | --dry-run                   :   do everything but updating flake.lock
@@ -92,7 +93,10 @@ mapfile -t flake_inputs < <(get_flake_inputs)
 declare parsed_args
 declare -i invalid_args=0
 
-parsed_args="$(getopt --name "$(basename "${0}")" --options "hndli:e:" --longoptions "help,dry-run,show-update-diff-only,list-inputs,include:,exclude:" -- "${@}")" || invalid_args="${?}"
+declare options_short="hndlsi:e:"
+declare options_long="help,dry-run,show-update-diff-only,list-inputs,serial-update,include:,exclude:"
+
+parsed_args="$(getopt --name "$(basename "${0}")" --options "${options_short}" --longoptions "${options_long}" -- "${@}")" || invalid_args="${?}"
 
 if [[ ${invalid_args} -ne 0 ]]; then
 	printf "\n"
@@ -103,6 +107,7 @@ eval set -- "${parsed_args}"
 
 declare MODE_CHANGELOG_ONLY=false
 declare MODE_DRY_RUN=false
+declare MODE_SERIAL_RUN=false
 
 while :; do
 	case "${1}" in
@@ -112,6 +117,7 @@ while :; do
 		;;
 	-d | --show-update-diff-only)
 		MODE_CHANGELOG_ONLY=true
+		printf "INFO: %s selected\n" "--show-update-diff-only"
 		shift 1
 		;;
 	-i | --include)
@@ -128,6 +134,12 @@ while :; do
 		;;
 	-n | --dry-run)
 		MODE_DRY_RUN=true
+		printf "INFO: %s selected\n" "--dry-run"
+		shift
+		;;
+	-s | --serial-update)
+		MODE_SERIAL_RUN=true
+		printf "INFO: %s selected\n" "--serial-update"
 		shift
 		;;
 	-h | --help)
@@ -135,6 +147,7 @@ while :; do
 		;;
 	esac
 done
+printf "\n"
 shift $((OPTIND - 1))
 
 if [[ ${#selected_inputs[@]} -gt 0 && ${#excluded_inputs[@]} -gt 0 ]]; then
@@ -168,7 +181,7 @@ gitmsgfile="$(mktemp)"
 {
 	printf "nix: lock update\n"
 	printf "\n"
-} >"${gitmsgfile}"
+} | tee "${gitmsgfile}"
 
 printf "\n"
 printf "Updating flake lock file...\n"
@@ -184,32 +197,79 @@ if [[ ${#excluded_inputs[@]} -gt 0 ]]; then
 	printf "\n"
 fi | tee -a "${gitmsgfile}"
 
-if [[ ${#inputs[@]} -gt 0 ]]; then
-	printf "Updating inputs: %s\n" "${inputs[*]}"
-	printf "\n"
-fi | tee -a "${gitmsgfile}"
+if "${MODE_SERIAL_RUN}"; then
+	# serial run - really means running update for each input
+	if [[ ${#selected_inputs[@]} -eq 0 && ${#inputs[@]} -eq 0 ]]; then
+		mapfile -t inputs < <(get_flake_inputs)
+	fi
 
-if "${MODE_DRY_RUN}"; then
-	echo Pretending to Run: nix flake update "${inputs[@]}"
-else
-	echo Running: nix flake update "${inputs[@]}"
-	nix flake update "${inputs[@]}" |& grep -v -E "^warning:" | tee -a "${gitmsgfile}" || true # keep grep from failing script when updates aren't found
-fi
-printf "\n"
+	declare input
+	for input in "${inputs[@]}"; do
+		# add ingle input name to commit subject
+		sed -r -i -e "s/(nix: lock update)/\1 - ${input}/g" "${gitmsgfile}"
 
-# success -> flake.lock not updated
-# failure -> flake.lock updated
-if git diff-files --quiet ./flake.lock; then
-	printf "INFO: No updates for ./flake.lock found.\n"
-else
-	if "${MODE_CHANGELOG_ONLY}"; then
-		printf "Showing update diff/changelog only.\n"
+		{
+			printf "Updating input: %s\n" "${input}"
+			printf "\n"
+		} | tee -a "${gitmsgfile}"
+
+		if "${MODE_DRY_RUN}"; then
+			echo Pretending to Run: nix flake update "${input}"
+		else
+			echo Running: nix flake update "${input}"
+			nix flake update "${input}" |& grep -v -E "^warning:" | tee -a "${gitmsgfile}" || true # keep grep from failing script when updates aren't found
+		fi
 		printf "\n"
-		git restore ./flake.lock
-		exit 1
+
+		# success -> flake.lock not updated
+		# failure -> flake.lock updated
+		if git diff-files --quiet ./flake.lock; then
+			printf "INFO: No updates for ./flake.lock found.\n"
+		else
+			if "${MODE_CHANGELOG_ONLY}"; then
+				printf "Showing update diff/changelog only.\n"
+				printf "\n"
+				git restore ./flake.lock
+				exit 1
+			else
+				git commit --file "${gitmsgfile}" ./flake.lock
+				printf "INFO: ./flake.lock updated.\n"
+			fi
+		fi
+		printf "\n"
+
+		# reset commit subject
+		sed -r -i -e "s/(nix: lock update) - [- a-zA-Z0-9]*$/\1/g" "${gitmsgfile}"
+	done
+else
+	if [[ ${#inputs[@]} -gt 0 ]]; then
+		printf "Updating inputs: %s\n" "${inputs[*]}"
+		printf "\n"
+	fi | tee -a "${gitmsgfile}"
+
+	# parallel run - really means only running update once
+	if "${MODE_DRY_RUN}"; then
+		echo Pretending to Run: nix flake update "${inputs[@]}"
 	else
-		git commit --file "${gitmsgfile}" ./flake.lock
-		printf "INFO: ./flake.lock updated.\n"
+		echo Running: nix flake update "${inputs[@]}"
+		nix flake update "${inputs[@]}" |& grep -v -E "^warning:" | tee -a "${gitmsgfile}" || true # keep grep from failing script when updates aren't found
+	fi
+	printf "\n"
+
+	# success -> flake.lock not updated
+	# failure -> flake.lock updated
+	if git diff-files --quiet ./flake.lock; then
+		printf "INFO: No updates for ./flake.lock found.\n"
+	else
+		if "${MODE_CHANGELOG_ONLY}"; then
+			printf "Showing update diff/changelog only.\n"
+			printf "\n"
+			git restore ./flake.lock
+			exit 1
+		else
+			git commit --file "${gitmsgfile}" ./flake.lock
+			printf "INFO: ./flake.lock updated.\n"
+		fi
 	fi
 fi
 printf "\n"
