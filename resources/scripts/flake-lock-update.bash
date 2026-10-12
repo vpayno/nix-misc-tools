@@ -1,18 +1,25 @@
 # shellcheck shell=bash
 
+# exit-codes
+# 1 - default
+# 2 - usage()
+# 3 - --show-update-diff-only
+# 4 - --fail-with-no-lock-updates
+
 usage() {
 	{
 		cat <<-EOF
 			Usage: ${0}
 
-			  -l | --list-inputs               :   show flake inputs
-			  -i | --include <input1,input2>   :   comma separated list of inputs to update
-			  -e | --exclude <input3,input4>   :   comma separated list of inputs to exclude from the update
-			  -s | --serial-update             :   update inputs one at a time
+			  -l | --list-inputs                :   show flake inputs
+			  -i | --include <input1,input2>    :   comma separated list of inputs to update
+			  -e | --exclude <input3,input4>    :   comma separated list of inputs to exclude from the update
+			  -s | --serial-update              :   update inputs one at a time
 
-			  -d | --show-update-diff-only     :   only show lock update diff
-			  -n | --dry-run                   :   do everything but updating flake.lock
-			  -h | --help                      :   show usage and exit(2)
+			  -d | --show-update-diff-only      :   only show lock update diff
+			  -f | --fail-with-no-lock-updates  :   fail when there are no lock updates
+			  -n | --dry-run                    :   do everything but updating flake.lock
+			  -h | --help                       :   show usage and exit(2)
 
 			Valid flake inputs: ${flake_inputs[*]// /,}
 		EOF
@@ -93,8 +100,8 @@ mapfile -t flake_inputs < <(get_flake_inputs)
 declare parsed_args
 declare -i invalid_args=0
 
-declare options_short="hndlsi:e:"
-declare options_long="help,dry-run,show-update-diff-only,list-inputs,serial-update,include:,exclude:"
+declare options_short="hndflsi:e:"
+declare options_long="help,dry-run,show-update-diff-only,fail-with-no-lock-updates,list-inputs,serial-update,include:,exclude:"
 
 parsed_args="$(getopt --name "$(basename "${0}")" --options "${options_short}" --longoptions "${options_long}" -- "${@}")" || invalid_args="${?}"
 
@@ -108,6 +115,7 @@ eval set -- "${parsed_args}"
 declare MODE_CHANGELOG_ONLY=false
 declare MODE_DRY_RUN=false
 declare MODE_SERIAL_RUN=false
+declare MODE_NO_LOCK_UPDATE_FAILS=false
 
 while :; do
 	case "${1}" in
@@ -140,6 +148,11 @@ while :; do
 	-s | --serial-update)
 		MODE_SERIAL_RUN=true
 		printf "INFO: %s selected\n" "--serial-update"
+		shift
+		;;
+	-f | --fail-with-no-lock-updates)
+		MODE_NO_LOCK_UPDATE_FAILS=true
+		printf "INFO: %s selected\n" "--fail-with-no-lock-updates"
 		shift
 		;;
 	-h | --help)
@@ -230,7 +243,7 @@ if "${MODE_SERIAL_RUN}"; then
 				printf "Showing update diff/changelog only.\n"
 				printf "\n"
 				git restore ./flake.lock
-				exit 1
+				exit 3
 			else
 				git commit --file "${gitmsgfile}" ./flake.lock
 				printf "INFO: ./flake.lock updated.\n"
@@ -265,10 +278,13 @@ else
 			printf "Showing update diff/changelog only.\n"
 			printf "\n"
 			git restore ./flake.lock
-			exit 1
+			exit 3
 		else
 			git commit --file "${gitmsgfile}" ./flake.lock
 			printf "INFO: ./flake.lock updated.\n"
+			if "${MODE_NO_LOCK_UPDATE_FAILS}"; then
+				exit 4
+			fi
 		fi
 	fi
 fi
